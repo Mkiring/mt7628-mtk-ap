@@ -1,156 +1,244 @@
-# MT7628 MTK WiFi 驱动移植状态报告
+# MT7628 MTK WiFi AP Driver for OpenWrt
 
-## 当前状态
+MediaTek MT7628/MT7688 官方 WiFi AP 驱动（v4.1.1.0）的 OpenWrt 移植版本。
 
-### 已完成的工作
+## 特性
 
-1. **创建新的驱动包结构**
-   - 位置：`package/mt7628-mtk-ap/`
-   - 源代码：已从 MTK SDK v4.1.1.0 复制
-   - Makefile：已创建并适配 OpenWrt 21.02
+- 基于 MediaTek 官方 SDK v4.1.1.0（最后发布版本，2019年）
+- 已适配 Linux 5.4 内核 API（定时器、设备树资源解析等）
+- 支持 AP/STA/WDS/Repeater 模式
+- 相比开源 mt76 驱动更稳定，性能更高
 
-2. **Prepare 阶段**
-   - ✅ 成功执行
-   - 源代码已正确复制到构建目录
-
-3. **创建内核兼容性补丁**
-   - 文件：`package/mt7628-mtk-ap/patches/001-linux-5.4-timer-compat.patch`
-   - 文件：`package/mt7628-mtk-ap/patches/002-linux-5.4-misc-compat.patch`
-   - 目标：修复 Linux 5.4 内核 API 变化
-
-### 主要问题
-
-#### 1. 内核版本差异（Linux 5.4 vs 旧版本）
-
-**定时器 API 变化（Linux 4.15+）**
-```c
-// 旧 API（已移除）
-init_timer(timer);
-timer->data = (unsigned long)data;
-timer->function = callback;
-
-// 新 API
-timer_setup(timer, callback, 0);
-// 回调函数签名也变了：
-// 旧：void callback(unsigned long data)
-// 新：void callback(struct timer_list *timer)
-```
-
-**其他 API 变化**
-- `class_create()` 参数变化（Linux 6.4+）
-- 网络设备操作接口可能有变化
-- PCI 驱动接口可能有变化
-
-#### 2. 编译依赖问题
-
-- 需要正确的内核配置
-- 需要正确的编译选项
-
-## 下一步工作
-
-### 1. 测试编译
+## 编译要求
 
 ```bash
-# 清理
-make package/mt7628-mtk-ap/clean
+# 在 OpenWrt 构建环境中添加此包
+git clone https://github.com/Mkiring/mt7628-mtk-ap.git package/mt7628-mtk-ap
+```
 
-# 准备（已完成）
-make package/mt7628-mtk-ap/prepare V=s
+### 配置 Makefile
 
-# 编译（需要先确保内核已编译）
+在 OpenWrt `.config` 中添加：
+
+```bash
+# 启用闭源驱动
+echo 'CONFIG_PACKAGE_kmod-mt7628-mtk-ap=m' >> .config
+
+# ⚠️ 重要：禁用冲突的开源驱动 mt7603（否则会导致 kernel panic）
+echo 'CONFIG_PACKAGE_kmod-mt7603=""' >> .config
+
+make defconfig
+```
+
+### 编译
+
+```bash
+# 清理之前的构建
+make package/mt7628-mtk-ap/clean V=s
+
+# 编译模块
+make package/mt7628-mtk-ap/compile V=s
+
+# 完整固件编译
+make -j$(nproc) V=s
+```
+
+编译成功后输出文件：
+- `bin/targets/ramips/mt76x8/packages/kmod-mt7628-mtk-ap_*.ipk`
+- `build_dir/.../mt7628.ko`
+
+## 设备安装
+
+### 方法 1：通过 opkg 安装（推荐）
+
+```bash
+# 将 ipk 传输到设备
+scp bin/targets/ramips/mt76x8/packages/kmod-mt7628-mtk-ap_*.ipk root@192.168.1.1:/tmp/
+
+# SSH 登录并安装
+ssh root@192.168.1.1
+opkg install /tmp/kmod-mt7628-mtk-ap_*.ipk
+
+# 检查模块是否加载
+lsmod | grep mt7628
+dmesg | grep -i mt7628
+```
+
+### 方法 2：手动加载模块
+
+```bash
+# 复制 .ko 文件到设备
+scp build_dir/.../mt7628_wifi/embedded/mt7628.ko root@192.168.1.1:/tmp/
+
+# 手动加载
+ssh root@192.168.1.1
+insmod /lib/modules/$(uname -r)/mt7628.ko
+
+# 验证
+iw dev
+dmesg | grep -i "mt7628.*DT resources"
+# 应该看到类似: mt7628: DT resources: mem=0x10300000, irq=6
+```
+
+## 设备树配置
+
+**必须**在目标设备的 DTS 中启用 wmac 节点：
+
+```dts
+&wmac {
+    status = "okay";
+    mediatek,mtd-eeprom = <&factory 0x0000>;
+};
+```
+
+驱动会优先从设备树读取地址和中断：
+- 寄存器基地址：`reg = <0x10300000 0x100000>` → `0x10300000`
+- 中断号：`interrupts = <6>` → IRQ 6
+
+如果设备树未配置，会自动回退到硬编码值（`0xB0300000`, IRQ 4）。
+
+## 常见接口名称
+
+| 接口名 | 说明 |
+|--------|------|
+| `ra0` | 主 AP 接口（MTK 传统命名） |
+| `wlan0` | 标准 cfg80211 接口 |
+| `ra1`, `ra2`... | 多 SSID (VAP) 接口 |
+
+## 网络配置
+
+编辑 `/etc/config/wireless`：
+
+```bash
+config wifi-device 'radio0'
+    option type 'mac80211'
+    option hwmode '11g'
+    option path 'platform/mt7628-wmac'
+    option channel '6'
+    option htmode 'HT20'
+    option country 'CN'
+
+config wifi-iface 'default_radio0'
+    option device 'radio0'
+    option network 'lan'
+    option mode 'ap'
+    option ssid 'OpenWrt-MTK'
+    option encryption 'psk2'
+    option key 'your-password'
+```
+
+应用配置：
+```bash
+wifi reload
+# 或
+/etc/init.d/network restart
+```
+
+## 诊断命令
+
+```bash
+# 检查模块加载状态
+lsmod | grep mt7628
+
+# 查看内核日志
+dmesg | grep -i mt7628
+
+# 检查无线接口
+iw dev
+ifconfig -a | grep -E "ra|wlan"
+
+# 检查频率/信道
+iw list
+iw phy
+
+# 测试无线功能
+iw dev wlan0 interface add mon0 type monitor
+iw dev mon0 set channel 6
+iw dev mon0 up
+```
+
+## 故障排除
+
+### 问题 1：Kernel Panic（双驱动冲突）
+
+**症状**：系统启动时崩溃，dmesg 显示两个驱动尝试绑定同一设备。
+
+**原因**：`kmod-mt7603`（开源 mt76 驱动）与 `kmod-mt7628-mtk-ap` 同时加载。
+
+**解决**：
+```bash
+# 禁用开源驱动
+echo 'CONFIG_PACKAGE_kmod-mt7603=""' >> .config
+make defconfig
 make package/mt7628-mtk-ap/compile V=s
 ```
 
-### 2. 修复编译错误
+### 问题 2：没有无线接口
 
-预期会遇到的问题：
-1. **定时器回调函数签名不匹配**
-   - 需要修改所有定时器回调函数
-   - 使用 `from_timer()` 宏获取数据
+**检查列表**：
+```bash
+# 确认模块已加载
+lsmod | grep mt7628
 
-2. **缺少头文件或宏定义**
-   - 可能需要添加更多的兼容性宏
+# 检查设备树配置
+cat /proc/device-tree/wmac/status
 
-3. **内核配置选项**
-   - 需要确保 `CONFIG_MT7628_AP_SUPPORT` 等选项正确设置
-
-### 3. 创建完整的内核 5.4 兼容层
-
-建议创建一个统一的兼容性头文件：
-
-```c
-// include/linux_5.4_compat.h
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
-// 定时器兼容性
-#define init_timer(timer) timer_setup(timer, NULL, 0)
-#define setup_timer(timer, fn, data) \
-    timer_setup(timer, (void (*)(struct timer_list *))fn, 0)
-
-// 其他兼容性宏...
-#endif
+# 查看内核日志
+dmesg | grep -i "mt7628\|wmac\|ieee80211"
 ```
 
-### 4. 测试和验证
+### 问题 3：固件缺失
 
-1. 编译成功后，安装到设备
-2. 测试基本功能：
-   - AP 模式
-   - Station 模式
-   - WDS/Repeater 模式
-3. 对比开源 mt76 驱动的稳定性
+```bash
+# 确认固件文件存在
+ls /lib/firmware/mt7628_e{1,2}.bin
 
-## 技术细节
-
-### 驱动架构
-
-```
-mt7628_wifi/
-├── embedded/          # 核心驱动代码
-│   ├── ap/           # AP 模式
-│   ├── sta/          # Station 模式
-│   ├── common/       # 通用功能
-│   ├── os/linux/     # Linux 内核接口（主要修改点）
-│   └── mcu/          # MCU 固件
-├── include/          # 头文件
-├── chips/            # 芯片特定代码
-├── mac/              # MAC 层
-└── phy/              # PHY 层
+# 如果缺少，从编译目录复制
+cp staging_dir/.../root-ramips/lib/firmware/mt7628_*.bin /tmp/
+scp /tmp/mt7628_*.bin root@device:/lib/firmware/
 ```
 
-### 关键文件
+### 问题 4：无法设置信道/功率
 
-1. **`embedded/os/linux/rt_linux.c`**
-   - 主要的内核接口实现
-   - 定时器、网络设备、内存管理等
-   - 需要大量修改以适配 Linux 5.4
+MTK 驱动使用私有 ioctl，通过 `iwpriv` 控制：
+```bash
+# 查看可用命令
+iwpriv ra0 show
 
-2. **`embedded/include/os/rt_linux.h`**
-   - OS 抽象层定义
-   - 需要添加兼容性宏
+# 设置发射功率 (0-100%)
+iwpriv ra0 set TxPower=100
 
-3. **`embedded/os/linux/rt_main_dev.c`**
-   - 主设备初始化
-   - 模块加载/卸载
+# 设置带宽 (0=20MHz, 1=40MHz)
+iwpriv ra0 set HtBw=1
+```
 
-### MTK 官方驱动 vs 开源 mt76 驱动
+## 已知限制
 
-| 特性 | MTK 官方驱动 | 开源 mt76 驱动 |
-|------|-------------|---------------|
-| 性能 | 更高 | 较低 |
-| 稳定性 | 更好 | 有断流问题 |
-| 功能 | 完整（AP/STA/WDS/Repeater） | 基本功能 |
-| 维护 | 已停止 | 活跃 |
-| 许可证 | 闭源 | 开源 |
+1. **无 LuCI Web 界面**：需手动编辑 `/etc/config/wireless`
+2. **MAC 地址来源**：依赖设备树中的 `mediatek,mtd-eeprom` 属性
+3. **硬件兼容性**：主要针对 MT7628AN/MT7688 SoC，其他芯片可能需要额外修改
+4. **单驱动模式**：必须禁用开源 mt76 驱动，不能共存
 
-## 建议
+## 与开源 mt76 驱动对比
 
-1. **优先修复定时器 API**：这是最关键的兼容性问题
-2. **逐步测试**：先让驱动编译通过，再测试功能
-3. **保留补丁**：所有修改都应该以补丁形式保存，方便后续维护
-4. **文档记录**：记录所有 API 变化和修复方法
+| 特性 | MTK 闭源驱动 | 开源 mt76 |
+|------|-------------|-----------|
+| 性能 | 更高 | 良好 |
+| 稳定性 | 更好 | 偶有断流 |
+| 功能完整性 | 完整（AP/STA/WDS/APCLI） | 基本功能 |
+| 维护状态 | 已停止（2019年后） | 活跃开发 |
+| 许可证 | GPL（二进制分发受限） | ISC |
+| 设备树支持 | ✅ 已添加 | ✅ 原生支持 |
 
-## 参考资料
+## Git 仓库
 
-- Linux 内核文档：`Documentation/timers/timer_setup.rst`
-- OpenWrt 驱动开发指南
-- MediaTek SDK 文档
+- **源码**：https://github.com/Mkiring/mt7628-mtk-ap
+- **分支**：`main`（当前稳定版）
+- **OpenWrt 集成**：作为 OpenWrt feed 使用
+
+## 贡献
+
+欢迎提交 Issue 和 Pull Request！请确保：
+1. 所有代码变更附带补丁文件
+2. 更新 README 中的相关说明
+3. 在目标设备上测试后再提交 PR
