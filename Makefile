@@ -32,6 +32,7 @@ endef
 define Build/Prepare
 	mkdir -p $(PKG_BUILD_DIR)
 	$(CP) ./mt7628_wifi $(PKG_BUILD_DIR)/
+	$(Build/Patch)
 endef
 
 # Define module name and source directory relative to PKG_BUILD_DIR
