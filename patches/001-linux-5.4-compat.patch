@@ -1,0 +1,18 @@
+--- a/embedded/os/linux/rt_linux.c
++++ b/embedded/os/linux/rt_linux.c
+@@ -50,6 +50,15 @@
+ #include "dot11i_wpa.h"
+ #include <linux/rtnetlink.h>
+
++/* Linux 5.4 compatibility fixes */
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
++#define init_timer(timer) timer_setup(timer, NULL, 0)
++#define setup_timer(timer, fn, data) timer_setup(timer, fn, 0)
++/* For timer callback, the function signature changed */
++#define TIMER_CALLBACK_TYPE void
++#define TIMER_DATA_ARG struct timer_list *timer
++#endif
++
+ #if defined(CONFIG_RA_HW_NAT) || defined(CONFIG_RA_HW_NAT_MODULE)
+ #if defined(CONFIG_SUPPORT_OPENWRT)
+ #include "../../../linux-kernel/net/nat/hw_nat/ra_nat.h"

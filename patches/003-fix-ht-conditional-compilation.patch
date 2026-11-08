@@ -1,0 +1,47 @@
+--- a/embedded/include/rtmp.h
++++ b/embedded/include/rtmp.h
+@@ -7957,6 +7957,7 @@ VOID  AssocPostProc(
+ 	IN PEDCA_PARM pEdcaParm,
+ 	IN IE_LISTS *ie_list,
++#ifdef DOT11_N_SUPPORT
+ 	IN HT_CAPABILITY_IE *pHtCapability,
+ 	IN  UCHAR HtCapabilityLen,
+ 	IN ADD_HT_INFO_IE *pAddHtInfo);
++#endif
+
+@@ -8490,6 +8491,7 @@ INT set_ht_protection(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
+ INT SetCommonHT(RTMP_ADAPTER *pAd, UCHAR BandIdx);
+
++#ifdef DOT11_N_SUPPORT
+ INT SetHtEntity(
+ 	IN RTMP_ADAPTER *pAd,
+ 	OUT HT_CAPABILITY_IE *pHtCapability,
+@@ -8498,6 +8500,7 @@ INT SetHtEntity(
+
+ VOID get_sta_cerrent_ht_cap(
+ 	IN RTMP_ADAPTER *pAd,
+@@ -8586,6 +8589,7 @@ VOID rtmp_set_ht_ie(
+ 	IN RTMP_ADAPTER *pAd,
+ 	OUT HT_CAPABILITY_IE  *pHtCapability,
+ 	OUT ADD_HT_INFO_IE  *pAddHtInfo);
++#endif
+
+@@ -8752,6 +8756,7 @@ VOID HTParametersInit(
+ 	IN RTMP_ADAPTER *pAd);
+
++#ifdef DOT11_N_SUPPORT
+ INT SetHtProtection(
+ 	IN RTMP_ADAPTER *pAd,
+ 	INOUT HT_CAPABILITY_IE *pHtCapability,
+ 	INOUT ADD_HT_INFO_IE *pAddHtInfo);
++#endif
+
+@@ -9026,6 +9031,7 @@ INT rtmp_set_vht_ie(RTMP_ADAPTER *pAd, UCHAR BandIdx);
+ #endif /* DOT11_VHT_AC */
+
++#ifdef DOT11_N_SUPPORT
+ INT rtmp_set_ht_ie(
+ 	IN RTMP_ADAPTER *pAd,
+ 	OUT  HT_CAPABILITY_IE *pHtCapability,
+ 	OUT  ADD_HT_INFO_IE  *pAddHtInfo);
++#endif

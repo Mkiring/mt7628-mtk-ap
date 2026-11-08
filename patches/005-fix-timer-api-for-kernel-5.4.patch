@@ -1,0 +1,67 @@
+--- a/mt7628_wifi/embedded/include/os/rt_linux.h
++++ b/mt7628_wifi/embedded/include/os/rt_linux.h
+@@ -635,7 +635,11 @@ typedef struct timer_list		OS_NDIS_MINIPORT_TIMER;
+ #define OS_HZ				HZ
+
+ typedef struct timer_list		OS_NDIS_MINIPORT_TIMER;
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
++typedef void (*TIMER_FUNCTION)(struct timer_list *t);
++#else
+ typedef void (*TIMER_FUNCTION)(unsigned long);
++#endif
+
+ #define RTMP_TIME_AFTER(a,b)		\
+ 	(typecheck(unsigned long, (unsigned long)a) &&		\
+--- a/mt7628_wifi/embedded/os/linux/rt_linux.c
++++ b/mt7628_wifi/embedded/os/linux/rt_linux.c
+@@ -217,13 +217,17 @@ int RtmpOSWrielessEventSendExt(
+ /* convert NdisMInitializeTimer --> RTMP_OS_Init_Timer */
+ static inline VOID __RTMP_OS_Init_Timer(
+ 		IN VOID *pReserved,
+ 		IN OS_NDIS_MINIPORT_TIMER * pTimer,
+ 		IN TIMER_FUNCTION function,
+ 		IN PVOID data)
+ {
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
++	timer_setup(pTimer, function, 0);
++#else
+ 	if (!timer_pending(pTimer)) {
+ 		init_timer(pTimer);
+ 		pTimer->data = (unsigned long)data;
+ 		pTimer->function = function;
+ 	}
++#endif
+ }
+--- a/mt7628_wifi/embedded/include/rtmp_timer.h
++++ b/mt7628_wifi/embedded/include/rtmp_timer.h
+@@ -35,8 +35,13 @@
+
+ #include "rtmp_os.h"
+
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
++#define DECLARE_TIMER_FUNCTION(_func)			\
++	void rtmp_timer_##_func(struct timer_list *t)
++#else
+ #define DECLARE_TIMER_FUNCTION(_func)			\
+ 	void rtmp_timer_##_func(unsigned long data)
++#endif
+
+ #define GET_TIMER_FUNCTION(_func)				\
+ 	(PVOID)rtmp_timer_##_func
+@@ -102,6 +107,16 @@
+ 		RTMP_OS_Add_Timer(&_pTimer->TimerObj, OS_HZ);              					\
+ }
+
++#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
++#define BUILD_TIMER_FUNCTION(_func)										\
++void rtmp_timer_##_func(struct timer_list *t)										\
++{																			\
++	PRALINK_TIMER_STRUCT	pTimer = from_timer(pTimer, t, TimerObj);				\
++																				\
++	_func(NULL, (PVOID) pTimer->cookie, NULL, pTimer); 							\
++	if (pTimer->Repeat)														\
++		RTMP_OS_Add_Timer(&pTimer->TimerObj, pTimer->TimerValue);			\
++}
+ #else /* !RTMP_TIMER_TASK_SUPPORT */
+ #define BUILD_TIMER_FUNCTION(_func)										\
+ void rtmp_timer_##_func(unsigned long data)										\

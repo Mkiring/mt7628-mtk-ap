@@ -1,0 +1,20 @@
+# Makefile for MT7628 WiFi driver
+# This is a wrapper to build the driver for OpenWrt
+
+obj-$(CONFIG_MT7628_WIFI) += mt7628.o
+
+mt7628-objs :=
+
+# Set header paths for OpenWrt build
+ifdef CONFIG_SUPPORT_OPENWRT
+EXTRA_CFLAGS += -I$(src)/../include \
+				-I$(src)/include \
+				-I$(src)/../ate/include
+export EXTRA_CFLAGS
+endif
+
+# Include the main driver Makefile
+include $(src)/os/linux/Makefile.rlt_wifi_ap
+
+# Add all object files
+mt7628-objs += $(cmm_objs) $(rate_objs) $(asic_objs) $(spec_objs) $(ap_objs)
