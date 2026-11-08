@@ -82,8 +82,27 @@ int __init rt2880_module_init(void)
 
 /*RtmpRaBusInit============================================ */
 	/* map physical address to virtual address for accessing register */
-	csr_addr = (unsigned long)RTMP_MAC_CSR_ADDR;
-	dev_irq = RTMP_MAC_IRQ_NUM;
+#ifdef CONFIG_OF
+	{
+		struct device_node *np;
+		struct resource res;
+
+		np = of_find_compatible_node(NULL, NULL, "mediatek,mt7628-wmac");
+		if (np && of_address_to_resource(np, 0, &res) == 0) {
+			csr_addr = (unsigned long)res.start;
+			dev_irq = irq_of_parse_and_map(np, 0);
+			of_node_put(np);
+			pr_info("mt7628: Using DT resources: csr=0x%lx, irq=%d",
+				csr_addr, dev_irq);
+		} else
+#endif
+		{
+			csr_addr = (unsigned long)RTMP_MAC_CSR_ADDR;
+			dev_irq = RTMP_MAC_IRQ_NUM;
+		}
+#ifdef CONFIG_OF
+	}
+#endif
 
 /*RtmpDevInit============================================== */
 	/* Allocate RTMP_ADAPTER adapter structure */

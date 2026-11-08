@@ -29,6 +29,8 @@
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/skbuff.h>
+#include <linux/of.h>
+#include <linux/platform_device.h>
 #include <linux/ethtool.h>
 #include <linux/wireless.h>
 #include <linux/proc_fs.h>
