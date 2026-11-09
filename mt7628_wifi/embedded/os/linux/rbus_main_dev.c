@@ -41,6 +41,7 @@
  * which rejects NULL devices since 5.x.
  */
 struct device *mt7628_rbus_dma_dev;
+static void __iomem *mt7628_csr_mapped;
 
 #ifdef RT_CFG80211_SUPPORT
 #include <linux/fs.h>           /* chrdev allocation */
@@ -102,13 +103,24 @@ int __init rt2880_module_init(void)
 		if (np && of_address_to_resource(np, 0, &res) == 0) {
 			struct platform_device *pdev = of_find_device_by_node(np);
 
-			csr_addr = (unsigned long)res.start;
+			/*
+			 * res.start is the PHYSICAL register base. The legacy
+			 * fallback below uses a KSEG1 virtual address instead,
+			 * so ioremap before handing csr_addr to the driver core.
+			 */
+			mt7628_csr_mapped = ioremap(res.start, resource_size(&res));
+			if (!mt7628_csr_mapped) {
+				of_node_put(np);
+				pr_err("mt7628: failed to ioremap CSR space\n");
+				return -ENOMEM;
+			}
+			csr_addr = (unsigned long)mt7628_csr_mapped;
 			dev_irq = irq_of_parse_and_map(np, 0);
 			if (pdev)
 				mt7628_rbus_dma_dev = &pdev->dev;
 			of_node_put(np);
-			pr_info("mt7628: Using DT resources: csr=0x%lx, irq=%d",
-				csr_addr, dev_irq);
+			pr_info("mt7628: Using DT resources: csr=0x%px (phys %pa), irq=%d",
+				(void *)csr_addr, &res.start, dev_irq);
 		} else
 #endif
 		{
@@ -264,6 +276,10 @@ err_out_free_radev:
 	RTMPFreeAdapter(pAd);
 
 err_out:
+	if (mt7628_csr_mapped) {
+		iounmap(mt7628_csr_mapped);
+		mt7628_csr_mapped = NULL;
+	}
 	return -ENODEV;
 
 }
@@ -293,6 +309,11 @@ VOID __exit rt2880_module_exit(void)
 
 	/* Free the root net_device. */
 	RtmpOSNetDevFree(net_dev);
+
+	if (mt7628_csr_mapped) {
+		iounmap(mt7628_csr_mapped);
+		mt7628_csr_mapped = NULL;
+	}
 #ifdef RT_CFG80211_SUPPORT
 	cdev_del(&dev_reg_cdev);
 	device_destroy(cl, dev);
