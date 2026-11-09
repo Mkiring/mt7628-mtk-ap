@@ -437,7 +437,7 @@ void RtmpFlashRead(
 #ifdef RA_MTD_RW_BY_NUM
 	ra_mtd_read(MTD_NUM_FACTORY, 0, (size_t) b, p);
 #else
-	ra_mtd_read_nm("Factory", a&0xFFFF, (size_t) b, p);
+	ra_mtd_read_nm("factory", a&0xFFFF, (size_t) b, p);
 #endif
 #endif /* CONFIG_RALINK_FLASH_API */
 }
@@ -453,7 +453,7 @@ void RtmpFlashWrite(
 #ifdef RA_MTD_RW_BY_NUM
 	ra_mtd_write(MTD_NUM_FACTORY, 0, (size_t) b, p);
 #else
-	ra_mtd_write_nm("Factory", a&0xFFFF, (size_t) b, p);
+	ra_mtd_write_nm("factory", a&0xFFFF, (size_t) b, p);
 #endif
 #endif /* CONFIG_RALINK_FLASH_API */
 }
@@ -1029,19 +1029,14 @@ void RtmpOSFileSeek(RTMP_OS_FD osfd, int offset)
 
 int RtmpOSFileRead(RTMP_OS_FD osfd, char *pDataPtr, int readLen)
 {
-	/* The object must have a read method */
-	if (osfd->f_op && osfd->f_op->read) {
-		return osfd->f_op->read(osfd, pDataPtr, readLen, &osfd->f_pos);
-	} else {
-		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("no file read method\n"));
-		return -1;
-	}
+	/* f_op->read is gone on modern filesystems, use kernel_read() */
+	return kernel_read(osfd, pDataPtr, readLen, &osfd->f_pos);
 }
 
 
 int RtmpOSFileWrite(RTMP_OS_FD osfd, char *pDataPtr, int writeLen)
 {
-	return osfd->f_op->write(osfd, pDataPtr, (size_t) writeLen, &osfd->f_pos);
+	return kernel_write(osfd, pDataPtr, writeLen, &osfd->f_pos);
 }
 
 
