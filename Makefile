@@ -29,6 +29,11 @@ define KernelPackage/mt7628-mtk-ap/description
   More stable than open-source mt76 driver.
 endef
 
+define KernelPackage/mt7628-mtk-ap/install
+	$(INSTALL_DIR) $(1)/etc/wireless/mt7628
+	$(INSTALL_DATA) ./files/etc/wireless/mt7628/mt7628.dat $(1)/etc/wireless/mt7628/
+endef
+
 define Build/Prepare
 	mkdir -p $(PKG_BUILD_DIR)
 	$(CP) ./mt7628_wifi $(PKG_BUILD_DIR)/
