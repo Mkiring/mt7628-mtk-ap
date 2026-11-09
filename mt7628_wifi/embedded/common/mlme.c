@@ -29,7 +29,7 @@
 /* Vendor Specific IE */
 #include "vendor.h"
 
-#include <stdarg.h>
+#include <linux/stdarg.h>
 #ifdef DOT11R_FT_SUPPORT
 #include "ft.h"
 #endif /* DOT11R_FT_SUPPORT */

@@ -41,6 +41,7 @@ SRC_DIR:=mt7628_wifi/embedded
 
 # Extra CFLAGS for all source files
 EXTRA_CFLAGS:= \
+	-Wno-error \
 	-I$(PKG_BUILD_DIR)/mt7628_wifi/include \
 	-I$(PKG_BUILD_DIR)/mt7628_wifi/embedded/include \
 	-I$(PKG_BUILD_DIR)/mt7628_wifi/ate/include \

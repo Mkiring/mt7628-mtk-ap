@@ -30,6 +30,17 @@
 #define RTMP_MODULE_OS
 
 #include "rt_config.h"
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
+#include <linux/of_platform.h>
+
+/*
+ * MT7628 is a SoC-internal RBUS device with no real pci_dev. The kernel
+ * already creates a platform_device for the "mediatek,mt7628-wmac" DT node
+ * (same one the mt76 driver uses); borrow its struct device for the DMA API,
+ * which rejects NULL devices since 5.x.
+ */
+struct device *mt7628_rbus_dma_dev;
 
 #ifdef RT_CFG80211_SUPPORT
 #include <linux/fs.h>           /* chrdev allocation */
@@ -89,8 +100,12 @@ int __init rt2880_module_init(void)
 
 		np = of_find_compatible_node(NULL, NULL, "mediatek,mt7628-wmac");
 		if (np && of_address_to_resource(np, 0, &res) == 0) {
+			struct platform_device *pdev = of_find_device_by_node(np);
+
 			csr_addr = (unsigned long)res.start;
 			dev_irq = irq_of_parse_and_map(np, 0);
+			if (pdev)
+				mt7628_rbus_dma_dev = &pdev->dev;
 			of_node_put(np);
 			pr_info("mt7628: Using DT resources: csr=0x%lx, irq=%d",
 				csr_addr, dev_irq);

@@ -53,7 +53,7 @@
 #include <linux/unistd.h>
 #include <asm/uaccess.h>
 #include <asm/types.h>
-#include <asm/unaligned.h>	/* for get_unaligned() */
+#include <linux/unaligned.h>	/* for get_unaligned() */
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
 #include <linux/pid.h>
@@ -358,7 +358,9 @@ typedef struct _OS_FS_INFO_
 {
 	int				fsuid;
 	int				fsgid;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 	mm_segment_t	fs;
+#endif
 } OS_FS_INFO;
 
 #define IS_FILE_OPEN_ERR(_fd) 	((_fd == NULL) || IS_ERR((_fd)))
@@ -882,9 +884,6 @@ void linux_pci_unmap_single(void *handle, ra_dma_addr_t dma_addr, size_t size, i
 
 #define PCI_MAP_SINGLE_DEV(_handle, _ptr, _size, _sd_idx, _dir)				\
 	linux_pci_map_single(_handle, _ptr, _size, _sd_idx, _dir)
-
-#define DMA_MAPPING_ERROR(_handle, _ptr)	\
-	dma_mapping_error(&((struct pci_dev *)(_handle))->dev, _ptr)
 
 #define PCI_UNMAP_SINGLE(_pAd, _ptr, _size, _dir)						\
 	linux_pci_unmap_single(((POS_COOKIE)(_pAd->OS_Cookie))->pci_dev, _ptr, _size, _dir)

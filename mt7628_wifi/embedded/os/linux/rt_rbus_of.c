@@ -9,6 +9,8 @@
 
 #include "rt_config.h"
 #include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
 #include <linux/platform_device.h>
 
 /**
@@ -57,6 +59,5 @@ int __init rt2880_get_hw_resources(struct resource **mem, int *irq)
 		(unsigned long long)(*mem)->start, *irq);
 	return 0;
 }
-EXPORT_SYMBOL(rt2880_get_hw_resources);
 
 #endif /* RTMP_RBUS_SUPPORT */

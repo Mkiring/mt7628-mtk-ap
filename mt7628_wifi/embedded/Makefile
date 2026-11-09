@@ -218,3 +218,4 @@ mt7628-objs += \
 	os/linux/rt_proc.o \
 	os/linux/rt_symb.o \
 	os/linux/rt_rbus_pci_drv.o \
+	os/linux/rt_rbus_of.o
