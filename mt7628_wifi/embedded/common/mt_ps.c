@@ -355,7 +355,7 @@ VOID MtPsWatchDog(RTMP_ADAPTER *pAd)
 				if (dw3->field.psm == 1)
 				{
 					pEntry->PsmUpDuration++;
-					MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): HIT PsmPktCount/Dur: %d/%d on Wcid %d (SW_PSM:[%d|%d])\n\n\n\n\n",
+					MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s(): HIT PsmPktCount/Dur: %d/%d on Wcid %d (SW_PSM:[%d|%d])\n",
                                         	__FUNCTION__, pEntry->PsmPktCount, pEntry->PsmUpDuration, pEntry->wcid, pEntry->PsMode, 
 						tr_entry->PsMode));
 
